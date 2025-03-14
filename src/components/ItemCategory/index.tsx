@@ -1,4 +1,3 @@
-import React from "react";
 import { BASE_ITEMS } from "../../constants/baseItem";
 import { Button } from "../Button";
 

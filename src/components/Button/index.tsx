@@ -1,6 +1,6 @@
 import clsx from "clsx";
+import { AllHTMLAttributes } from "react";
 import { BaseProps } from "../../types/common";
-import { AllHTMLAttributes, HTMLAttributes } from "react";
 
 interface IButton extends BaseProps, AllHTMLAttributes<HTMLButtonElement> {
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;

@@ -1,4 +1,3 @@
-import { forwardRef } from "react";
 import { MOD_GROUPS } from "../constants/modGroup";
 import { MODIFIERS } from "../constants/modifier";
 
