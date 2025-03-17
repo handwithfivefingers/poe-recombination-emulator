@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { POEParser } from "../../helpers/parseStringToPOEItem";
 import { getModGroup } from "../../helpers/splitModifier";
 import { BaseProps } from "../../types/common";
