@@ -1,9 +1,5 @@
-/**
- * Parses Path of Exile item text into a structured JSON format
- * @param {string} itemText - The raw item text to parse
- * @return {Object} The parsed item data in JSON format
- */
 import { TYPES } from "../constants/types";
+import { getBaseItemByName, getModBaseOnItem } from "./common";
 import { MODS_BASE, getGroupModByName, splitModifier } from "./splitModifier";
 
 const AVAILABLE_GROUPS = ["1", "8", "11", "12", "13", "9", "14", "10"];
@@ -34,214 +30,267 @@ export interface IPOEItem {
   groups: string[];
 }
 
-export const parsePoEItem = (itemText: string) => {
-  // Initialize the result object
-  const result: IPOEItem = {
-    name: "",
-    quality: "",
-    crit: "",
-    aps: "",
-    base: [],
-    ilevel: 0,
-    implicit: [],
-    mods: [],
-    groups: [],
+export class POEParser {
+  name: string = "";
+  baseItem: Record<any, any> = {};
+  quality: string | number = "";
+  crit: any = "";
+  aps: any = "";
+  ilevel: number = 0;
+  base: any[] = [];
+  groups: any[] = [];
+  implicit: string[] = [];
+  mods: any[] = [];
+
+  constructor(itemText: string) {
+    const sections = itemText.split(/\n--------\n/);
+    const headerLines = sections[0].split("\n");
+
+    const itemInformation = sections[1];
+    const iLevelSection = sections[2];
+    // const iLevelRequirementSection = sections[3];
+    const implicitSection = sections[4];
+    const modifiersSection = sections[5];
+    const baseSection = sections[6];
+    console.log("sections", sections);
+
+    this.parseItemName(headerLines);
+    this.parseItemInformation(itemInformation);
+    this.parseIlevel(iLevelSection);
+    this.parseImplicitItem(implicitSection);
+    this.parseBaseItem(baseSection);
+
+    // Parse Modifer in the end
+    this.parseModifiers(modifiersSection);
+
+    return this;
+  }
+
+  parseItemName = (arr: any[]) => {
+    const itemName = arr[arr.length - 1].trim();
+    this.name = itemName;
+    this.baseItem = getBaseItemByName(itemName);
+  };
+  parseItemInformation = (qualitySection: any) => {
+    // Extract quality
+    const qualityMatch = qualitySection.match(/Quality: \+(\d+)%/);
+    if (qualityMatch) {
+      this.quality = qualityMatch[1];
+    }
+    const critMatch = qualitySection.match(/Critical Strike Chance: (\d+\.\d+)%/);
+    if (critMatch) {
+      this.crit = critMatch[1];
+    }
+    const apsMatch = qualitySection.match(/Attacks Per Second: (\d+\.\d+)/);
+    if (apsMatch) {
+      this.aps = apsMatch[1];
+    }
   };
 
-  // Split the text into sections based on the separator lines
-  const sections = itemText.split(/\n--------\n/);
+  parseIlevel = (ilevelSection: any) => {
+    const ilevelMatch = ilevelSection?.match(/Item Level: (\d+)/);
+    if (ilevelMatch) {
+      this.ilevel = parseInt(ilevelMatch[1]);
+    }
+  };
 
-  if (sections.length > 7) {
-    // delete sections[4]
-    sections.splice(4, 1);
-  }
-  // Parse the header section for item name
-  const headerLines = sections[0].split("\n");
-  // Skip "Rarity: Rare" and "Crafted Item" lines
-  result.name = headerLines[headerLines.length - 1].trim();
+  parseBaseItem = (baseSection: any) => {
+    const baseRegex = /Shaper|Elder|Hunter|Crusader|Redeemer|Warlod|Eater|Searching/g;
+    const base = [];
+    if (baseSection.match(baseRegex)?.length) {
+      base.push(...(baseSection.match(baseRegex) as string[]));
+    }
+    this.groups = [...this.getGroups(base), ...AVAILABLE_GROUPS] as any;
+    this.base = base;
+  };
 
-  // Parse the quality section
-  const qualitySection = sections[1];
+  parseImplicitItem = (implicitSection: string) => {
+    if (implicitSection.includes("implicit")) {
+      // Extract implicit mods by removing the "(implicit)" suffix
+      const implicitMods = implicitSection
+        .split("\n")
+        .map((line) => line.replace(/\s*\(implicit\)$/, "").trim())
+        .filter((line) => line.length > 0);
 
-  // Extract quality
-  const qualityMatch = qualitySection.match(/Quality: \+(\d+)%/);
-  if (qualityMatch) {
-    result.quality = qualityMatch[1];
-  }
-
-  // Extract critical strike chance
-  const critMatch = qualitySection.match(/Critical Strike Chance: (\d+\.\d+)%/);
-  if (critMatch) {
-    result.crit = critMatch[1];
-  }
-
-  // Extract attacks per second
-  const apsMatch = qualitySection.match(/Attacks Per Second: (\d+\.\d+)/);
-  if (apsMatch) {
-    result.aps = apsMatch[1];
-  }
-
-  // Parse the item level
-  const ilevelSection = sections[3];
-  const ilevelMatch = ilevelSection.match(/Item Level: (\d+)/);
-  if (ilevelMatch) {
-    result.ilevel = parseInt(ilevelMatch[1]);
-  }
-
-  // Parse implicit mods
-  const implicitSection = sections[4];
-  if (implicitSection.includes("implicit")) {
-    // Extract implicit mods by removing the "(implicit)" suffix
-    const implicitMods = implicitSection
+      this.implicit = implicitMods;
+    }
+  };
+  parseModifiers = (explicitSection: string) => {
+    let explicitLines = explicitSection
       .split("\n")
-      .map((line) => line.replace(/\s*\(implicit\)$/, "").trim())
+      .map((line) => line.trim())
       .filter((line) => line.length > 0);
+    console.log("explicitSection", explicitLines);
 
-    result.implicit = implicitMods;
-  }
-
-  console.log("sections", sections);
-  // Parse explicit mods
-  const explicitSection = sections[sections.length - 2];
-  const explicitLines = explicitSection
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  // Parse base type (Shaper, Elder, etc.)
-  console.log("explicitSection", explicitSection);
-
-  const baseSection = sections[sections.length - 1];
-  console.log("baseSection", baseSection);
-  if (baseSection?.includes("Shaper")) {
-    result.base.push("Shaper");
-  }
-  if (baseSection?.includes("Elder")) {
-    result.base.push("Elder");
-  }
-  if (baseSection?.includes("Hunter")) {
-    result.base.push("Hunter");
-  }
-  if (baseSection?.includes("Crusader")) {
-    result.base.push("Crusader");
-  }
-  if (baseSection?.includes("Redeemer")) {
-    result.base.push("Redeemer");
-  }
-  if (baseSection?.includes("Warlord")) {
-    result.base.push("Warlord");
-  }
-
-  result.groups = [...getGroups(result.base), ...AVAILABLE_GROUPS] as any;
-
-  processExplicitMods(explicitLines, result);
-
-  return result;
-};
-
-function processExplicitMods(lines: string[], result: IPOEItem) {
-  // Common patterns for mod line beginnings
-  console.log("lines", lines);
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const nextLine = lines[i + 1];
-
-    const { isSame, mod } = isSameLine(line, nextLine, result.groups);
-    if (isSame) {
-      i++;
-    }
-
-    result.mods.push(mod);
-  }
-}
-
-const isSameLine = (line1: string, line2: string, groups: string[]): { mod: any; isSame: boolean } => {
-  let line = line1 + ", " + line2;
-  let isSame = false;
-  if (!line2) {
-    line = line1;
-    isSame = false;
-  }
-  let { modifier: splitMod, isCraft } = splitModifier(line);
-  let mod = getModDetails(splitMod, groups);
-  if (mod) isSame = true;
-  else {
-    line = line1;
-    isSame = false;
-    let { modifier } = splitModifier(line);
-    console.log('modifier',modifier)
-    mod = getModDetails(modifier, groups);
-  }
-  return {
-    mod: {
-      ...mod,
-      isCraft,
-      tag: getTagDetails(mod?.mtypes as string),
-    },
-    isSame,
+    const result = this.processExplicitMods(explicitLines);
+    this.mods = result;
   };
-};
 
-const getModDetails = (splitMod: string, groups: string[]) => {
-  for (let group of groups) {
-    const listMod = MODS_BASE.get(group);
-    const targetMod = listMod.find(
-      (m: any) => (m.affix === "suffix" || m.affix === "prefix") && m.name_modifier.trim() === splitMod.trim()
-    );
-    if (!targetMod) continue;
-    return targetMod;
-  }
-};
-
-const getTagDetails = (tags: string) => {
-  if (!tags) return [];
-  const splitTag = tags.split("|");
-  const result = [];
-  for (let tag of splitTag) {
-    console.log("tag", tag);
-    if (tag) {
-      const objectTag: any = TYPES.seq.find((t) => t.id_mtype == tag) || {};
-      if (objectTag?.jewellery_tag == 1) continue;
-      result.push(objectTag);
+  processExplicitMods(lines: string[]) {
+    const { craftPool, remainPool } = this.extractItemMods(lines);
+    let res: any[] = [];
+    if (craftPool) {
+      for (let i = 0; i < craftPool.length; i++) {
+        const line = craftPool[i];
+        const nextLine = craftPool[i + 1];
+        const mod = this.isSameLine(line, nextLine);
+        if (mod) {
+          i++;
+        } else {
+          const singleMod = this.isSameLine(line);
+          res.push(singleMod);
+          singleMod.isCraft = true;
+          continue;
+        }
+        mod.isCraft = true;
+        res.push(mod);
+      }
     }
-  }
-  return result;
-};
+    if (remainPool) {
+      for (let i = 0; i < remainPool.length; i++) {
+        const line = remainPool[i];
+        const nextLine = remainPool[i + 1];
+        const mod = this.isSameLine(line, nextLine);
+        if (mod) {
+          i++;
+        } else {
+          const singleMod = this.isSameLine(line);
+          const isVeil = this.isVeilMod(line);
+          singleMod.isVeil = isVeil;
+          res.push(singleMod);
+          continue;
+        }
+        const isVeil = this.isVeilMod(line, nextLine);
+        mod.isVeil = isVeil;
+        res.push(mod);
+      }
+    }
 
-const getGroups = (groups: string[]) => {
-  const result = [];
-  for (let groupName of groups) {
-    const group = getGroupModByName(groupName);
-    result.push(group?.id_mgroup);
+    return res;
   }
-  return result;
-};
-// Example usage
-// const itemText = `Rarity: Rare
-//   Crafted Item
-//   Calling Wand
-//   --------
-//   Quality: +20% (augmented)
-//   Physical Damage: 15-27
-//   Critical Strike Chance: 8.30%
-//   Attacks Per Second: 1.50
-//   --------
-//   Requirements:
-//   Int: 81
-//   Level: 20
-//   --------
-//   Item Level: 100
-//   --------
-//   Minions deal 15% increased Damage (implicit)
-//   --------
-//   Damage Penetrates 4% Elemental Resistances
-//   Socketed Gems are Supported by Level 16 Lightning Penetration
-//   52% increased Lightning Damage
-//   Socketed Gems are supported by Level 18 Elemental Damage with Attacks
-//   29% increased Elemental Damage with Attack Skills
-//   --------
-//   Shaper Item`;
 
-// const parsedItem = parsePoEItem(itemText);
-// console.log(JSON.stringify(parsedItem, null, 2));
+  isSameLine = (line1: string, line2?: string): any | undefined => {
+    const itemModifiers = getModBaseOnItem(this.baseItem.id_base);
+    const MOD_BASES = ["Base", "Crafted", ...this.base];
+    let lines = line1;
+    if (line2) {
+      lines += `, ${line2}`;
+    }
+    for (let base of MOD_BASES) {
+      const mods = itemModifiers.get(base);
+      const lineSplit = splitModifier(lines);
+      const mod = mods.find((mod: any) => lineSplit == mod.name_modifier);
+      if (mod) {
+        mod.tag = this.getTagDetails(mod?.mtypes as string);
+        return mod;
+      } else continue;
+    }
+    return undefined;
+
+    // let line = line1 + ", " + line2;
+    // let isSame = false;
+    // if (!line2) {
+    //   line = line1;
+    //   isSame = false;
+    // }
+    // let { modifier: splitMod, isCraft } = splitModifier(line);
+    // let mod = this.getModDetails(splitMod, groups);
+    // if (mod) isSame = true;
+    // else {
+    //   line = line1;
+    //   isSame = false;
+    //   let { modifier } = splitModifier(line);
+    //   console.log("modifier", modifier);
+    //   mod = this.getModDetails(modifier, groups);
+    // }
+    // return {
+    //   mod: {
+    //     ...mod,
+    //     isCraft,
+    //     tag: this.getTagDetails(mod?.mtypes as string),
+    //   },
+    //   isSame,
+    // };
+    return {
+      mod: {},
+      isSame: false,
+    };
+  };
+
+  extractItemMods = (modPool: any[]) => {
+    let craftPool = [];
+    let remainPool = [];
+    for (let mod of modPool) {
+      if (mod.includes("crafted")) {
+        craftPool.push(mod);
+      } else {
+        remainPool.push(mod);
+      }
+    }
+    return {
+      craftPool,
+      remainPool,
+    };
+  };
+
+  isVeilMod = (line1: string, line2?: string) => {
+    const itemModifiers = getModBaseOnItem(this.baseItem.id_base);
+    let lines = line1;
+    if (line2) {
+      lines += `, ${line2}`;
+    }
+    const listMods = itemModifiers.get("Veiled");
+    let formatLines = splitModifier(lines);
+    const result = listMods.some((item: any) => item.name_modifier === formatLines);
+    return result;
+  };
+
+  getModDetails = (splitMod: string, groups: string[]) => {
+    try {
+      for (let group of groups) {
+        const listMod = MODS_BASE.get(group);
+        const targetMod = listMod.find(
+          (m: any) => (m.affix === "suffix" || m.affix === "prefix") && m.name_modifier.trim() === splitMod.trim()
+        );
+        if (!targetMod) continue;
+        return { ...targetMod };
+      }
+    } catch (error) {
+      console.log("error", error);
+      return {};
+    }
+  };
+
+  getTagDetails = (tags: string) => {
+    if (!tags) return [];
+    const splitTag = tags.split("|");
+    const result = [];
+    for (let tag of splitTag) {
+      console.log("tag", tag);
+      if (tag) {
+        const objectTag: any = TYPES.seq.find((t) => t.id_mtype == tag) || {};
+        if (objectTag?.jewellery_tag == 1) continue;
+        result.push(objectTag);
+      }
+    }
+    return result;
+  };
+
+  getGroups = (groups: string[]) => {
+    const result = [];
+    for (let groupName of groups) {
+      const group = getGroupModByName(groupName);
+      result.push(group?.id_mgroup);
+    }
+    return result;
+  };
+
+  getItemInformation = () => {
+    return {
+      name: this.name,
+      quality: this.quality,
+      implicit: this.implicit,
+      mods: this.mods,
+    };
+  };
+}

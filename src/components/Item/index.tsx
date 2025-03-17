@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { useCallback, useEffect, useState } from "react";
-import { parsePoEItem } from "../../helpers/parseStringToPOEItem";
+import { POEParser } from "../../helpers/parseStringToPOEItem";
 import { getModGroup } from "../../helpers/splitModifier";
 import { BaseProps } from "../../types/common";
 import { IItemProps } from "../../types/item";
@@ -18,25 +18,29 @@ const Item = (props: IItemProps) => {
   };
 
   const handleImportItem = (v: string) => {
-    const itemJSON = parsePoEItem(v);
+    const itemJSON = new POEParser(v);
+    // console.log("itemJSON", itemJSON);
+    // return;
     const listModifers = itemJSON.mods;
     const prefix: any = [];
     const suffix: any = [];
     for (let i = 0; i < listModifers.length; i++) {
       const mod = listModifers[i];
-      if (mod.affix === "prefix") {
+      console.log("mod", mod);
+      if (mod?.affix === "prefix") {
         prefix.push(mod);
-      } else if (mod.affix === "suffix") {
+      } else if (mod?.affix === "suffix") {
         suffix.push(mod);
       }
     }
+    console.log("listModifiers", listModifers);
     setItemDetails({ ...itemJSON, prefix, suffix });
     props?.onImport?.({ ...itemJSON, prefix, suffix });
   };
 
-  useEffect(() => {
-    console.log("itemDetails", itemDetails);
-  }, [itemDetails]);
+  // useEffect(() => {
+  //   console.log("itemDetails", itemDetails);
+  // }, [itemDetails]);
   return (
     <div className="flex flex-col gap-4 justify-start items-center">
       <div className="box border-2 relative rounded w-80  border-slate-500 bg-black flex  gap-2 items-start justify-center flex-col overflow-hidden flex-1">
@@ -56,9 +60,9 @@ const Item = (props: IItemProps) => {
           )}
         </div>
 
-        <div className="h-full overflow-auto my-4 px-4">
+        <div className="h-full overflow-auto my-4 px-4 flex flex-col gap-2 ">
           {(itemDetails.prefix?.length && (
-            <ul>
+            <ul className="bg-neutral-300/10 rounded">
               {itemDetails.prefix?.map((detail: IModiferItemStat, i: number) => {
                 return (
                   <ModiferItem
@@ -80,7 +84,7 @@ const Item = (props: IItemProps) => {
             ""}
 
           {(itemDetails.suffix?.length && (
-            <ul>
+            <ul className="bg-neutral-300/10 rounded">
               {itemDetails.suffix?.map((detail: IModiferItemStat, i: number) => {
                 return (
                   <ModiferItem
@@ -196,7 +200,11 @@ const ImportModal = ({ onClose, onSubmit }: ICreateModal) => {
 // --------
 // Shaper Item
 
-interface IModiferItem extends BaseProps, IModiferItemStat {}
+interface IModiferItem extends BaseProps, IModiferItemStat {
+  isCraft?: boolean;
+  isVeil?: boolean;
+}
+
 const ModiferItem = (props: IModiferItem) => {
   const groups: any = useCallback(() => {
     return getModGroup(props?.id_mgroup) || false;
@@ -210,21 +218,25 @@ const ModiferItem = (props: IModiferItem) => {
     >
       <div className="flex flex-col gap-1">
         <div className="flex gap-2">
-          {groups()?.name_mgroup ? (
+          {props.isVeil ? (
+            <div className="w-6 flex-shrink-0 flex">
+              <Icon name={"Veiled"} />
+            </div>
+          ) : groups()?.name_mgroup ? (
             <div className="w-6 flex-shrink-0 flex">
               <Icon name={groups()?.name_mgroup} />
             </div>
           ) : (
             ""
           )}
-          <p className={`text-xs text-slate-300 ${props?.id_mgroup === "11" ? "text-white font-medium" : ""}`}>
-            {props.name_modifier}{" "}
+          <p className={`text-xs text-slate-300 ${props.isCraft ? "text-white font-medium" : ""}`}>
+            {props.name_modifier}
             <span className="text-white bg-neutral-500 rounded-full px-1">{props.affix === "prefix" ? "P" : "S"}</span>
           </p>
         </div>
         <div className="flex gap-1">
           {props?.id_mgroup !== "11" &&
-            props.tag.map((item) => <Badge name={item.name_mtype} key={item.name_mtype + item.id_mtype} />)}
+            props.tag?.map((item) => <Badge name={item.name_mtype} key={item.name_mtype + item.id_mtype} />)}
         </div>
       </div>
     </div>

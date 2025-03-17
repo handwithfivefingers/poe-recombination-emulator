@@ -2,26 +2,16 @@ import { MOD_GROUPS } from "../constants/modGroup";
 import { MODIFIERS } from "../constants/modifier";
 
 const ExclusiveMode = ["Can have up to 3 Crafted Modifiers"];
-export const splitModifier = (modifier: string): { isCraft: boolean; modifier: string } => {
+
+export const splitModifier = (modifier: string): string => {
   // const regex = new RegExp(/[0-9][?.][0.9]+/g);
   const regex = new RegExp(/(\d+(\.\d+)?|\d+%)/g);
-  const textReg = " (crafted)";
-
-  let isCraft = false;
-  if (modifier.includes(textReg)) {
-    isCraft = true;
-  }
+  const textReg = /\ \(crafted\)/g;
   const newModifier = modifier.replace(textReg, "");
-  if (ExclusiveMode.includes(newModifier)) {
-    return {
-      modifier: newModifier,
-      isCraft: true,
-    };
-  }
-  return {
-    modifier: newModifier.replace(regex, "#"),
-    isCraft,
-  };
+  
+  // if(newModifier === "Can have up to 3 Crafted Modifiers") return "Can have up to 3 Crafted Modifiers"
+  if (ExclusiveMode.some((mod) => mod === newModifier)) return newModifier;
+  return newModifier.replace(regex, "#");
 };
 
 export const getModGroup = (id: string) => {

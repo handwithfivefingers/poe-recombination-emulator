@@ -1,4 +1,3 @@
-
 export const ShaperIcon = () => {
   return (
     <div className="w-8 h-8">
@@ -49,13 +48,23 @@ export const CraftIcon = () => {
     </div>
   );
 };
+export const Veiled = () => {
+  return (
+    <div className="w-8 h-8">
+      <img src={"/assets/fico_unveil.png"} />
+    </div>
+  );
+};
 
 const DefaultIcon = () => {
-  return <div className="w-6 h-6 bg-indigo-900 rounded-full"></div>;
+  return (
+    <div className="w-6 h-6  rounded-full flex items-start pt-1 justify-center">
+      <div className="rounded-full h-2 w-2 bg-amber-300/80" />
+    </div>
+  );
 };
 
 export const Icon = ({ name }: { name: string }) => {
-  console.log("name", name);
   switch (name) {
     case "Shaper":
       return <ShaperIcon />;
@@ -69,6 +78,8 @@ export const Icon = ({ name }: { name: string }) => {
       return <WarlordIcon />;
     case "Redeemer":
       return <RedeemerIcon />;
+    case "Veiled":
+      return <Veiled />;
     case "Crafted":
       return <CraftIcon />;
     default:

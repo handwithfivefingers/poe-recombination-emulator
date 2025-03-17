@@ -1,5 +1,5 @@
+import { getBaseItemByName, getModBaseOnItem } from "./common";
 import { IModifer, IPOEItem } from "./parseStringToPOEItem";
-import { getCommonModifier, getGroupModByName } from "./splitModifier";
 
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 interface ItemRecombine extends IPOEItem {
@@ -17,10 +17,11 @@ export class Recombination {
   explicit: IModifer[] = [];
   item1: ItemRecombine;
   item2: ItemRecombine;
-  availbleMods: any[] = [];
+  availbleMods: Map<any, any> = new Map();
+
+  itemCombined: any = {};
 
   constructor(props: IRecombineProps) {
-    console.log("props", props);
     this.item1 = props.item1;
     this.item2 = props.item2;
   }
@@ -67,13 +68,14 @@ export class Recombination {
   async combine() {
     const base = this.getRandomBase();
 
-    const getBaseGroupID = base.base?.map((item) => getGroupModByName(item)?.id_mgroup);
-    const availbleMods = getCommonModifier(getBaseGroupID as any[]);
+    this.itemCombined = base;
 
-    this.availbleMods = availbleMods;
+    const baseItem = getBaseItemByName(base.name);
+    this.availbleMods = getModBaseOnItem(baseItem.id_base);
 
     this.mergePrefixPool(this.item1.prefix, this.item2.prefix);
     this.mergeSuffixPool(this.item1.suffix, this.item2.suffix);
+
     const countPrefix = this.prefixPool.length;
     const countSuffix = this.suffixPool.length;
 
@@ -88,6 +90,7 @@ export class Recombination {
 
     const maximumPrefix = this.getRandomOutcome(prefixChance);
     const maximumSuffix = this.suffixPool?.length > 0 ? this.getRandomOutcome(suffixChance) : 0;
+    // const maximumSuffix = 3;
     // console.log("maximumPrefix", maximumPrefix);
     // console.log("maximumSuffix", maximumSuffix);
 
@@ -102,11 +105,11 @@ export class Recombination {
     let isHitExclusive = false;
     let samePrefixMod: string[] = [];
     let sameSuffixMod: string[] = [];
-    console.log("Maximum Mod", hitLength, isHitExclusive);
 
     let countSuf = 0;
     let countPre = 0;
     let history = [];
+
     for (let i = 0; i < hitLength; i++) {
       let pickPrefix = this.getRandom(2) === 0;
       if (countSuf >= Number(maximumSuffix) && countPre < Number(maximumPrefix)) {
@@ -116,8 +119,6 @@ export class Recombination {
       }
 
       if (pickPrefix && newPrefixPool.length < Number(maximumPrefix)) {
-        console.log("count pre");
-
         let currentPool = [...this.prefixPool];
         if (isHitExclusive) currentPool = [...currentPool].filter((item) => !(item as any)?.isExclusive);
         if (samePrefixMod.length) {
@@ -138,12 +139,26 @@ export class Recombination {
         });
         await sleep(500);
       } else {
-        console.log("count suf");
         if (newSuffixPool.length < Number(maximumSuffix)) {
           let currentPool = [...this.suffixPool];
+          console.log(
+            "currentPool",
+            currentPool.map((item) => item.name_modifier)
+          );
           if (isHitExclusive) currentPool = [...currentPool].filter((item) => !(item as any)?.isExclusive);
+
+          console.log(
+            "hitExclusive",
+            currentPool.map((item) => item.name_modifier)
+          );
+
           if (sameSuffixMod.length) {
             currentPool = [...currentPool].filter((item) => !sameSuffixMod.includes(item.modgroup));
+
+            console.log(
+              "sameSuffix",
+              currentPool.map((item) => item.name_modifier)
+            );
           }
           const randomMod = this.getRandom(currentPool.length);
           const selectedMod = currentPool[randomMod];
@@ -164,7 +179,6 @@ export class Recombination {
     }
 
     isHitExclusive = false;
-    console.log("newPrefixPool", [...newPrefixPool, ...newSuffixPool]);
 
     return {
       ...base,
@@ -174,12 +188,22 @@ export class Recombination {
       maximumSuffix,
       prefixChance,
       suffixChance,
-      history
+      history,
     };
   }
 
   isExclusiveMod(mod: string) {
-    return !this.availbleMods.some((item: any) => item.modgroup === mod);
+    const BASE_ITEM = ["Base", ...this.itemCombined.base];
+    let result = false;
+    for (let base of BASE_ITEM) {
+      let item = this.availbleMods.get(base).find((item: any) => item.modgroup == mod);
+      if (item) {
+        result = false;
+        break;
+      }
+      if (!item) result = true;
+    }
+    return result;
   }
   removePoolIndex(num: number, concurrent: any[]) {
     let newPool = JSON.parse(JSON.stringify(concurrent));
