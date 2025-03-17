@@ -44,32 +44,81 @@ export class POEParser {
 
   constructor(itemText: string) {
     const sections = itemText.split(/\n--------\n/);
-    const headerLines = sections[0].split("\n");
 
+    let modifierIndex = undefined;
+
+    const ItemLevelRegex = /Item Level/g;
+    const headerLines = sections[0].split("\n");
     const itemInformation = sections[1];
     const iLevelSection = sections[2];
-    // const iLevelRequirementSection = sections[3];
-    const implicitSection = sections[4];
-    const modifiersSection = sections[5];
-    const baseSection = sections[6];
-    console.log("sections", sections);
+    const sectionsLength = sections.length;
 
-    this.parseItemName(headerLines);
-    this.parseItemInformation(itemInformation);
-    this.parseIlevel(iLevelSection);
-    this.parseImplicitItem(implicitSection);
-    this.parseBaseItem(baseSection);
+    if (sections[2]?.match(ItemLevelRegex)?.length) {
+      modifierIndex = 2;
+    } else if (sections[3]?.match(ItemLevelRegex)?.length) {
+      modifierIndex = 3;
+    } else if (sections[4]?.match(ItemLevelRegex)?.length) {
+      modifierIndex = 4;
+    } else if (sections[5]?.match(ItemLevelRegex)?.length) {
+      modifierIndex = 5;
+    } else if (sections[6]?.match(ItemLevelRegex)?.length) {
+      modifierIndex = 6;
+    }
+    if (modifierIndex) {
+      const range = sectionsLength - modifierIndex - 1;
+      console.log("range", sectionsLength, modifierIndex, range);
 
-    // Parse Modifer in the end
-    this.parseModifiers(modifiersSection);
+      const isNextSectionEnchanted = sections[modifierIndex + 1].match(/enchant/)?.length;
+      const isMirrorItem = sections.find((str) => str.match(/Mirrored/));
+      const isSplit = sections.find((str) => str.match(/Split/));
 
+      let baseIndex = 0;
+      if (isMirrorItem) baseIndex += 1;
+      if (isSplit) baseIndex += 1;
+
+      if (isNextSectionEnchanted || isMirrorItem || isSplit) {
+        this.parseItemName(headerLines); // 0
+        this.parseItemInformation(itemInformation); // 1
+        this.parseIlevel(iLevelSection); // 2
+        this.parseImplicitItem(sections[modifierIndex + 1 + (isNextSectionEnchanted ? 1 : 0)]);
+        this.parseModifiers(sections[modifierIndex + 2 + (isNextSectionEnchanted ? 1 : 0)]);
+        this.parseBaseItem(sections[sectionsLength - 1]);
+      } else if (range === 3) {
+        this.parseItemName(headerLines); // 0
+        this.parseItemInformation(itemInformation); // 1
+        this.parseIlevel(iLevelSection); // 2
+        this.parseImplicitItem(sections[modifierIndex + 1]);
+        this.parseModifiers(sections[modifierIndex + 2]);
+        this.parseBaseItem(sections[sectionsLength - 1]);
+      } else if (range === 2) {
+        this.parseItemName(headerLines); // 0
+        this.parseItemInformation(itemInformation); // 1
+        this.parseIlevel(iLevelSection); // 2
+        this.parseImplicitItem(sections[modifierIndex - 1]);
+        this.parseModifiers(sections[modifierIndex + 1]);
+        this.parseBaseItem(sections[sectionsLength - 1]);
+      } else if (range === 1) {
+        this.parseItemName(headerLines); // 0
+        this.parseItemInformation(itemInformation); // 1
+        this.parseIlevel(iLevelSection); // 2
+        this.parseImplicitItem(sections[modifierIndex - 1]);
+        this.parseModifiers(sections[modifierIndex + 1]);
+        this.parseBaseItem(sections[sectionsLength - 1]);
+      } else alert("Something went wrong, please try other item later.");
+      // }
+      console.log("baseItem", this.baseItem);
+    }
+    console.log("this", this);
     return this;
   }
 
   parseItemName = (arr: any[]) => {
     const itemName = arr[arr.length - 1].trim();
     this.name = itemName;
-    this.baseItem = getBaseItemByName(itemName);
+    console.log("itemName", itemName);
+    const exlusiveName = /Synthesised /;
+    const parsedName = itemName.replace(exlusiveName, "");
+    this.baseItem = getBaseItemByName(parsedName);
   };
   parseItemInformation = (qualitySection: any) => {
     // Extract quality
@@ -95,6 +144,7 @@ export class POEParser {
   };
 
   parseBaseItem = (baseSection: any) => {
+    console.log("baseSection", baseSection);
     const baseRegex = /Shaper|Elder|Hunter|Crusader|Redeemer|Warlod|Eater|Searching/g;
     const base = [];
     if (baseSection.match(baseRegex)?.length) {
@@ -156,8 +206,10 @@ export class POEParser {
         } else {
           const singleMod = this.isSameLine(line);
           const isVeil = this.isVeilMod(line);
-          singleMod.isVeil = isVeil;
-          res.push(singleMod);
+          // console.log("isVeil", isVeil);
+          // singleMod.isVeil = isVeil;
+          console.log("singleMod", singleMod);
+          res.push({ ...singleMod, isVeil });
           continue;
         }
         const isVeil = this.isVeilMod(line, nextLine);
