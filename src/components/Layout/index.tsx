@@ -35,7 +35,7 @@ export const Layout = () => {
               Five Finger
             </a>
           </p>
-          <p className="font-medium text-xs italic text-slate-300">Version: 0.1.2 </p>
+          <p className="font-medium text-xs italic text-slate-300">Version: 0.1.3 </p>
         </div>
       </div>
     </>

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { TYPES } from "../constants/types";
 import { getBaseItemByName, getModBaseOnItem } from "./common";
 import { MODS_BASE, getGroupModByName, splitModifier } from "./splitModifier";
@@ -71,39 +72,41 @@ export class POEParser {
       const isNextSectionEnchanted = sections[modifierIndex + 1].match(/enchant/)?.length;
       const isMirrorItem = sections.find((str) => str.match(/Mirrored/));
       const isSplit = sections.find((str) => str.match(/Split/));
-
-      let baseIndex = 0;
-      if (isMirrorItem) baseIndex += 1;
-      if (isSplit) baseIndex += 1;
+      const isImplicit = sections.find((str) => str.match(/Implicit/));
+      console.log("isImplicit", isImplicit);
+      console.log("isNextSectionEnchanted", isNextSectionEnchanted);
+      console.log("isMirrorItem", isMirrorItem);
+      console.log("isSplit", isSplit);
+      console.log("range", range);
 
       if (isNextSectionEnchanted || isMirrorItem || isSplit) {
         this.parseItemName(headerLines); // 0
         this.parseItemInformation(itemInformation); // 1
         this.parseIlevel(iLevelSection); // 2
         this.parseImplicitItem(sections[modifierIndex + 1 + (isNextSectionEnchanted ? 1 : 0)]);
+        this.parseBaseItem(sections[sectionsLength - 1]); // Always parse before parse Modifiers
         this.parseModifiers(sections[modifierIndex + 2 + (isNextSectionEnchanted ? 1 : 0)]);
-        this.parseBaseItem(sections[sectionsLength - 1]);
       } else if (range === 3) {
         this.parseItemName(headerLines); // 0
         this.parseItemInformation(itemInformation); // 1
         this.parseIlevel(iLevelSection); // 2
         this.parseImplicitItem(sections[modifierIndex + 1]);
+        this.parseBaseItem(sections[sectionsLength - 1]); // Always parse before parse Modifiers
         this.parseModifiers(sections[modifierIndex + 2]);
-        this.parseBaseItem(sections[sectionsLength - 1]);
       } else if (range === 2) {
         this.parseItemName(headerLines); // 0
         this.parseItemInformation(itemInformation); // 1
         this.parseIlevel(iLevelSection); // 2
         this.parseImplicitItem(sections[modifierIndex - 1]);
+        this.parseBaseItem(sections[sectionsLength - 1]); // Always parse before parse Modifiers
         this.parseModifiers(sections[modifierIndex + 1]);
-        this.parseBaseItem(sections[sectionsLength - 1]);
       } else if (range === 1) {
         this.parseItemName(headerLines); // 0
         this.parseItemInformation(itemInformation); // 1
         this.parseIlevel(iLevelSection); // 2
         this.parseImplicitItem(sections[modifierIndex - 1]);
+        this.parseBaseItem(sections[sectionsLength - 1]); // Always parse before parse Modifiers
         this.parseModifiers(sections[modifierIndex + 1]);
-        this.parseBaseItem(sections[sectionsLength - 1]);
       } else alert("Something went wrong, please try other item later.");
       // }
       console.log("baseItem", this.baseItem);
@@ -166,7 +169,7 @@ export class POEParser {
     }
   };
   parseModifiers = (explicitSection: string) => {
-    let explicitLines = explicitSection
+    const explicitLines = explicitSection
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
@@ -178,7 +181,7 @@ export class POEParser {
 
   processExplicitMods(lines: string[]) {
     const { craftPool, remainPool } = this.extractItemMods(lines);
-    let res: any[] = [];
+    const res: any[] = [];
     if (craftPool) {
       for (let i = 0; i < craftPool.length; i++) {
         const line = craftPool[i];
@@ -197,18 +200,17 @@ export class POEParser {
       }
     }
     if (remainPool) {
+      console.log("remainPool", remainPool);
       for (let i = 0; i < remainPool.length; i++) {
         const line = remainPool[i];
         const nextLine = remainPool[i + 1];
         const mod = this.isSameLine(line, nextLine);
+        console.log("mod", mod);
         if (mod) {
           i++;
         } else {
           const singleMod = this.isSameLine(line);
           const isVeil = this.isVeilMod(line);
-          // console.log("isVeil", isVeil);
-          // singleMod.isVeil = isVeil;
-          console.log("singleMod", singleMod);
           res.push({ ...singleMod, isVeil });
           continue;
         }
@@ -224,11 +226,12 @@ export class POEParser {
   isSameLine = (line1: string, line2?: string): any | undefined => {
     const itemModifiers = getModBaseOnItem(this.baseItem.id_base);
     const MOD_BASES = ["Base", "Crafted", ...this.base];
+    console.log("MOD_BASES", MOD_BASES);
     let lines = line1;
     if (line2) {
       lines += `, ${line2}`;
     }
-    for (let base of MOD_BASES) {
+    for (const base of MOD_BASES) {
       const mods = itemModifiers.get(base);
       const lineSplit = splitModifier(lines);
       const mod = mods.find((mod: any) => lineSplit == mod.name_modifier);
@@ -270,9 +273,9 @@ export class POEParser {
   };
 
   extractItemMods = (modPool: any[]) => {
-    let craftPool = [];
-    let remainPool = [];
-    for (let mod of modPool) {
+    const craftPool = [];
+    const remainPool = [];
+    for (const mod of modPool) {
       if (mod.includes("crafted")) {
         craftPool.push(mod);
       } else {
@@ -292,14 +295,14 @@ export class POEParser {
       lines += `, ${line2}`;
     }
     const listMods = itemModifiers.get("Veiled");
-    let formatLines = splitModifier(lines);
+    const formatLines = splitModifier(lines);
     const result = listMods.some((item: any) => item.name_modifier === formatLines);
     return result;
   };
 
   getModDetails = (splitMod: string, groups: string[]) => {
     try {
-      for (let group of groups) {
+      for (const group of groups) {
         const listMod = MODS_BASE.get(group);
         const targetMod = listMod.find(
           (m: any) => (m.affix === "suffix" || m.affix === "prefix") && m.name_modifier.trim() === splitMod.trim()
@@ -317,7 +320,7 @@ export class POEParser {
     if (!tags) return [];
     const splitTag = tags.split("|");
     const result = [];
-    for (let tag of splitTag) {
+    for (const tag of splitTag) {
       console.log("tag", tag);
       if (tag) {
         const objectTag: any = TYPES.seq.find((t) => t.id_mtype == tag) || {};
@@ -330,7 +333,7 @@ export class POEParser {
 
   getGroups = (groups: string[]) => {
     const result = [];
-    for (let groupName of groups) {
+    for (const groupName of groups) {
       const group = getGroupModByName(groupName);
       result.push(group?.id_mgroup);
     }

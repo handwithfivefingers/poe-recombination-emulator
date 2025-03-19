@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import clsx from "clsx";
 import { useCallback, useState } from "react";
 import { POEParser } from "../../helpers/parseStringToPOEItem";
