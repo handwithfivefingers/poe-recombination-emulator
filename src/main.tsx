@@ -6,6 +6,7 @@ import "./index.css";
 import App from "./pages/App.tsx";
 import FeedBack from "./pages/feedback/index.tsx";
 import Changelog from "./pages/changelog/index.tsx";
+import { Simulator } from "./pages/simulator/index.tsx";
 
 const router = createBrowserRouter([
   {
@@ -23,6 +24,10 @@ const router = createBrowserRouter([
       {
         path: "/feedback",
         element: <FeedBack />,
+      },
+      {
+        path: "/simulator",
+        element: <Simulator />,
       },
     ],
   },

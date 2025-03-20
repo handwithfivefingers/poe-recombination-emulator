@@ -7,7 +7,7 @@ export default defineConfig(({ command }) => {
   return {
     plugins: [react(), tailwindcss()],
     esbuild: {
-      drop: command !== "serve" ? ["debugger", "console"] : [],
+      // drop: command !== "serve" ? ["debugger", "console"] : [],
     },
   };
 });
